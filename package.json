@@ -1,20 +1,33 @@
 {
-	"name": "boilerplate-project-messagebaord",
+	"name": "messageboard",
 	"version": "0.0.1",
-	"description": "InfoSec project for freeCodeCamp",
+	"description": "Local bulletin boards",
 	"main": "server.js",
 	"scripts": {
 		"start": "node server.js"
 	},
 	"dependencies": {
 		"body-parser": "^1.15.2",
+		"bcryptjs": "latest",
 		"chai": "^4.2.0",
 		"chai-http": "^3.0.0",
+		"common-errors": "latest",
 		"cors": "^2.8.1",
-		"dotenv": "^8.2.0",
+		"dotenv": "latest",
 		"express": "^4.14.0",
 		"helmet": "^3.1.0",
-		"mocha": "^3.2.0"
+		"mocha": "^3.2.0",
+		"openai": "latest",
+		"zod": "latest"
+	},
+	"devDependencies": {
+		"@types/node": "latest",
+		"@types/express": "latest",
+		"@types/body-parser": "latest",
+		"@types/cors": "latest",
+		"@types/chai": "latest",
+		"@types/mocha": "latest",
+		"@types/chai-http": "latest"
 	},
 	"repository": {
 		"type": "git",
