@@ -1,5 +1,5 @@
 'use strict';
-require('dotenv').config();
+require('dotenv').config({quiet: true});
 const express     = require('express');
 const bodyParser  = require('body-parser');
 const cors        = require('cors');
@@ -16,6 +16,9 @@ app.use(cors({origin: '*'})); //For FCC testing purposes only
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Configure app
+require(`./scripts/server/config.js`)(app);
 
 //Sample front-end
 app.route('/b/:board/')
