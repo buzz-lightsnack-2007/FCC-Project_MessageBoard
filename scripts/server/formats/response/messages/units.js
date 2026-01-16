@@ -42,7 +42,6 @@ class AddedMessagesResponse extends ViewingMessagesResponse {
 	 */
 	_import(data) {
 		super._import(...arguments);
-		this.delete_password = data.delete_password;
 		this.reported = data.flagged;
 	};
 
@@ -116,7 +115,6 @@ class AddedThreadResponse extends ViewingThreadResponse {
 	_import(data) {
 		super._import(...arguments);
 		this.reported = data.flagged;
-		this.delete_password = data.delete_password;
 	}
 
 };
@@ -142,7 +140,7 @@ class Board_View extends Template.ResponseData {
 	 * @property {ViewingThreadResponse[]} content - The threads in the board
 	 */
 	get content() {
-		let result = this.board.find(undefined, this.size || 10);
+		let result = this.board.find(undefined, this.size);
 		return result.map((thread) => (new ViewingThreadResponse(thread, 3)));
 	};
 
@@ -191,4 +189,4 @@ class Replies_View extends Template.ResponseData {
 	};
 };
 
-module.exports = {ViewingMessagesResponse, AddedMessagesResponse, ViewingThreadResponse, AddedThreadResponse, Board_View};
+module.exports = {ViewingMessagesResponse, AddedMessagesResponse, ViewingThreadResponse, AddedThreadResponse, Board_View, Replies_View};

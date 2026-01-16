@@ -1,7 +1,7 @@
 const Logging = require(`../../utils/logging.js`);
 const Errors = [...Object.values(
 		require(`../../messaging/controller.js`).Errors
-	), require(`common-errors`).AuthenticationRequiredError, require(`zod`).ZodError];
+	), require(`common-errors`).AuthenticationRequiredError, require(`common-errors`).ArgumentNullError, require(`common-errors`).AlreadyInUseError, require(`zod`).ZodError];
 
 class Formats {
 	static error = require(`../formats/errors/error.js`);
@@ -62,3 +62,5 @@ class OutputProcessor {
 		output && (this.content = output);
 	};
 };
+
+module.exports = OutputProcessor;

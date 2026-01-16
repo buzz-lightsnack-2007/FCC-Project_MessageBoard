@@ -86,18 +86,20 @@ class Pigeon {
      * @param {Pigeon} properties - the properties
      */
     constructor(properties) {
-        z.object({}).loose().safeParse(properties).success && (
-            /**
-             * Attempts importing data from properties
-             * @function
-             */
-            () => {
+        if (z.object({}).loose().safeParse(properties).success) {
             properties?.created_on && (this.created_on = properties.created_on); // Import the creation date
             this._id = properties?._id ? properties._id : new Number(this.created_on); // Then, set the ID
             properties?.flagged && (this.flagged = properties.flagged);
             properties?._key && (this._key = properties._key); // Obfuscates in the process
             properties && Object.entries(properties).forEach((item) => (Object.keys(this).includes(item[0]) && (this[item[0]] = item[1]))); // Import all other properties
-        })();
+        } else if (properties) {
+            const validation = [z.coerce.number(), z.string().min(1)].map((validator) => (validator.safeParse(properties))).filter((result) => (result.success));
+            
+            if (!(validation.length)) {
+                throw new (require(`common-errors`).ArgumentNullError)(`ID`)
+            };
+            this?._id = validation[0].data; // Set to the first correct data
+        };
     };
 
     /**
@@ -223,7 +225,7 @@ class MessageThread extends Pigeon {
      */
     find(message) {
         let ID = (message instanceof Message || message instanceof DeletedMessage) ? message._id : message;
-        let matching = this.#messages.filter(m => (m._id == ID))[0];
+        let matching = this.#messages.filter(m => (m._id == ID || z.coerce.number().safeParse(ID).success && (m._id == z.coerce.number().parse(ID))))[0];
         if (!matching) {
             throw new Errors.NotFoundError_Message(ID);
         };
@@ -284,7 +286,7 @@ class MessageBoard extends Pigeon {
         let found = this.find(thread);
         
         return found ? (() => {
-            found._key.input = key; // Attempt authentication; will not continue when an error occurs
+            found._key && (found._key.input = key); // Attempt authentication; will not continue when an error occurs
             this.threads.delete(found);
             return new Statuses.Deletion_Status(!this.threads.has(found));
         }) : found;
@@ -326,7 +328,7 @@ class MessageBoard extends Pigeon {
          */
         const single = () => {
             let ID = (thread instanceof MessageThread) ? thread._id : thread;
-            let matching = Array.from(this.threads).filter(t => (t._id == ID))[0];
+            let matching = Array.from(this.threads).filter(t => (t._id == ID || z.coerce.number().safeParse(ID).success && (t._id == z.coerce.number().parse(ID))))[0];
             
             if (!matching) {
                 throw new Errors.NotFoundError_Thread(ID);
@@ -356,9 +358,27 @@ class MessageBoard extends Pigeon {
      * @function create
      * @see MessageThread
      * @returns {MessageThread} the created thread
+     * @throws {import('common-errors').AlreadyInUseError} when the thread ID is already used
      */
-    create() {
-        let thread = new MessageThread(...arguments);
+    create(properties) {
+        if (((typeof properties) == "object") ? (properties && properties?._id) : properties) {
+            let found = true; 
+            try {
+                this.find(properties)
+            } catch(error) {
+                if (error instanceof Errors.NotFoundError_Thread) {
+                    found = false; 
+                };
+            }
+            
+            found && (
+                /**
+                 * If found, throw an error of the thread already being used. It can not be created. 
+                 */
+                () => {throw new (require(`common-errors`).AlreadyInUseError)(`thread`)})();
+		};
+
+        let thread = new MessageThread(properties);
         this.threads.add(thread);
         return (thread);
     };
