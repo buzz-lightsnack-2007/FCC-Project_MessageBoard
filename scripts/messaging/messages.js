@@ -1,5 +1,7 @@
 const z = require(`zod`).z;
 const AuthKey = require(`../security/key.js`);
+const Errors = require(`./errors.js`);
+const Statuses = require(`./status.js`);
 
 /**
  * Compare whether or not the instance and the copy are identical, at least by ID. 
@@ -10,7 +12,7 @@ const AuthKey = require(`../security/key.js`);
  * @returns {Boolean} whether or not they’re identical
  */
 function compare(instance, copy) {
-	return ((instance == copy) || (instance._id == copy._id));
+    return ((instance == copy) || (instance._id == copy._id));
 }
 
 /**
@@ -19,117 +21,106 @@ function compare(instance, copy) {
  * @class Pigeon
  */
 class Pigeon {
-	/**
-	 * ID
-	 * @type {Number}
-	 */
-	_id; 
+    /**
+     * ID
+     * @type {Number}
+     */
+    _id; 
 
-	/**
-	 * Creation date
-	 * @private
-	 * @type {Date}
-	 */
-	#created_on; 
+    /**
+     * Creation date
+     * @protected
+     * @type {Date}
+     */
+    _created_on; 
 
-	/**
-	 * Creation date
-	 * @type {Date}
-	 */
-	get created_on() {
-		return (this.#created_on)
-			? this.#created_on
-			: (
-				/**
-				 * Generate the creation date. 
-				 * @returns {Date} the generation date. 
-				 */
-				() => {
-					let date = new Date();
-					this.#created_on = date;
-					return (date);
-			})();
-	};
-	/**
-	 * @param {Date|String|Number} date the input date
-	 */
-	set created_on(date) {
-		this.#created_on = date ? (([z.number().gte(0), z.iso.datetime(), z.iso.date()].some(
-			/**
-			 * Test if the input pertains to some date and time
-			 * @param validator the Zod validator
-			 * @returns {Boolean} whether the validation matched
-			 */
-			(validator) => (validator.safeParse(date).success)))
-			? new Date(date)
-			: z.date().parse(date)) : undefined;
-		return (this.#created_on);
-	};
+    /**
+     * Creation date
+     * @type {Date}
+     */
+    get created_on() {
+        return (this._created_on)
+            ? this._created_on
+            : (
+                /**
+                 * Generate the creation date. 
+                 * @returns {Date} the generation date. 
+                 */
+                () => {
+                    let date = new Date();
+                    this._created_on = date;
+                    return (date);
+            })();
+    };
+    /**
+     * @param {Date|String|Number} date the input date
+     */
+    set created_on(date) {
+        this._created_on = date ? (([z.number().gte(0), z.iso.datetime(), z.iso.date()].some(
+            /**
+             * Test if the input pertains to some date and time
+             * @param validator the Zod validator
+             * @returns {Boolean} whether the validation matched
+             */
+            (validator) => (validator.safeParse(date).success)))
+            ? new Date(date)
+            : z.date().parse(date)) : undefined;
+        return (this._created_on);
+    };
 
-	/**
-	 * Text content
-	 * @type {String}
-	 */
-	text;
+    /**
+     * Text content
+     * @type {String}
+     */
+    text;
 
-	/**
-	 * Flagged
-	 * @type {Boolean}
-	 * @private
-	 */
-	#flagged = false; 
+    /**
+     * Flagged
+     * @type {Boolean}
+     */
+    flagged = false; 
+	
+    /**
+     * Prepares a messaging entity
+     * @constructor
+     * @param {Pigeon} properties - the properties
+     */
+    constructor(properties) {
+        z.object({}).loose().safeParse(properties).success && (
+            /**
+             * Attempts importing data from properties
+             * @function
+             */
+            () => {
+            properties?.created_on && (this.created_on = properties.created_on); // Import the creation date
+            this._id = properties?._id ? properties._id : new Number(this.created_on); // Then, set the ID
+            properties?.flagged && (this.flagged = properties.flagged);
+            properties?._key && (this._key = properties._key); // Obfuscates in the process
+            properties && Object.entries(properties).forEach((item) => (Object.keys(this).includes(item[0]) && (this[item[0]] = item[1]))); // Import all other properties
+        })();
+    };
 
-	/**
-	 * Flagged
-	 * @type {Boolean}
-	 */
-	get flagged() {return this.#flagged};
-	set flagged(state) {
-		this.#flagged = new Boolean(state);
-		return this.#flagged;
-	};
+    /**
+     * The authentication key (internal storage)
+     * @protected
+     * @type {AuthKey}
+     */
+    __key; 
 
-	/**
-	 * Prepares a messaging entity
-	 * @constructor
-	 * @param {Pigeon} properties - the properties
-	 */
-	constructor(properties) {
-		z.object({}).loose().safeParse(properties).success && (
-			/**
-			 * Attempts importing data from properties
-			 * @function
-			 */
-			() => {
-			properties?.created_on && (this.created_on = properties.created_on); // Import the creation date
-			this._id = properties?._id ? properties._id : new Number(this.created_on); // Then, set the ID
-			properties?.flagged && (this.flagged = properties.flagged);
-			properties?._key && (this._key = properties._key); // Obfuscates in the process
-			properties && Object.entries(properties).forEach((item) => (Object.keys(this).includes(item[0]) && (this[item[0]] = item[1]))); // Import all other properties
-		})();
-	};
-
-	/**
-	 * The authentication key
-	 * @private
-	 * @type {AuthKey}
-	 */
-	#key; 
-
-	/**
-	 * The authentication key
-	 * @protected
-	 * @type {AuthKey}
-	 */
-	get _key() {
-		return this.#key;
-	}
-	/**
-	 * @param {String} value user password or existing hash
-	 */
-	set _key(value) {
-		this.#key = (value && ((value instanceof AuthKey) ? value : (new AuthKey(value)))) || undefined;
-	};
+    /**
+     * The authentication key
+     * @protected
+     * @type {AuthKey}
+     */
+    get _key() {
+        return this.__key;
+    }
+    /**
+     * @param {String} value user password or existing hash
+     */
+    set _key(value) {
+        this.__key = (value && ((value instanceof AuthKey) ? value : (new AuthKey(value)))) || undefined;
+    };
 };
 
 /**
@@ -138,19 +129,14 @@ class Pigeon {
  * @extends Pigeon
  */
 class Message extends Pigeon {
-	/**
-	 * @constructor
-	 * @param {Message} properties - the properties
-	 */
-	constructor(properties) {
-		super(properties);
-		properties?.text && (this.text = properties?.text);
-	};
-
-	/**
-	 * Message content
-	 */
-	text;
+    /**
+     * @constructor
+     * @param {Message} properties - the properties
+     */
+    constructor(properties) {
+        super(properties);
+        properties?.text && (this.text = properties?.text);
+    };
 };
 
 /**
@@ -159,188 +145,226 @@ class Message extends Pigeon {
  * @extends Message
  */
 class DeletedMessage extends Message {
-	constructor(properties) {
-		super(properties);
-	};
+    constructor(properties) {
+        super(properties);
+    };
 };
 
 class MessageThread extends Pigeon {
-	constructor(properties) {
-		super(properties);
-	};
+    constructor(properties) {
+        super(properties);
+    };
 
-	/**
-	 * Thread description
-	 */
-	text; 
+    /**
+     * The messages
+     * @protected
+     * @type {Message[]|DeletedMessage[]}
+     */
+    #messages = [];
 
-	/**
-	 * The messages
-	 * @private
-	 * @type {Message[]|DeletedMessage[]}
-	 */
-	#messages = [];
+    /**
+     * The message
+     * @type {Message[]|DeletedMessage[]}
+     */
+    get messages () {return (this.#messages);};
+    set messages (messages_list) {
+        this.#messages = z.array(z.any).parse(messages_list).filter(
+            /**
+             * Filters out invalid messages.
+             * @param {Message|DeletedMessage|*} message - the message
+             * @returns {Boolean} the validity of the message; only valid messages will be added to the messages array
+             */
+            (message) => ([Message, DeletedMessage].some((type) => (z.instanceof(type).safeParse(message).success))))
+        return (this.#messages);
+    };
 
-	/**
-	 * The message
-	 * @type {Message[]|DeletedMessage[]}
-	 */
-	get messages () {return (this.#messages);};
-	set messages (messages_list) {
-		this.#messages = z.array(z.any).parse(messages_list).filter(
-			/**
-			 * Filters out invalid messages.
-			 * @param {Message|DeletedMessage|*} message - the message
-			 * @returns {Boolean} the validity of the message; only valid messages will be added to the messages array
-			 */
-			(message) => ([Message, DeletedMessage].some((type) => (z.instanceof(type).safeParse(message).success))))
-		return (this.#messages);
-	};
+    /**
+     * Last update
+     * @type {Date}
+     */
+    get bumped_on() {
+        return ((this.#messages.length && this.#messages.slice(-1)[0]?.created_on) || this.created_on);
+    };
 
-	/**
-	 * Last update
-	 * @type {Date}
-	 */
-	get bumped_on() {
-		return ((this.#messages.length && this.#messages.slice(-1)[0]?.created_on) || this.created_on);
-	};
+    /**
+     * Deletes a message
+     * 
+     * @function delete
+     * @param {Message|String} message - the message or the message ID to delete
+     * @param {String} key - the management key
+     * @returns {Statuses.Deletion_Status} true if successfully deleted or already deleted
+     * @throws {import('common-errors').AuthenticationRequiredError} when authentication fails
+     */
+    delete(message, key) {
+        let found = this.find(message);
+        return (found && (() => {
+            found?._key && (found._key.input = key);
 
-	/**
-	 * Deletes a message
-	 * 
-	 * @function delete
-	 * @param {Message|String} message - the message or the message ID to delete
-	 * @param {String} key - the management key
-	 * @returns {Boolean|undefined} true if successfully deleted, false if already deleted, or undefined if not found
-	 * @throws {import('common-errors').AuthenticationRequiredError} when authentication fails
-	 */
-	delete(message, key) {
-		let found = this.find(message);
-		return (found && (() => {
-			found?._key && (found._key.input = key);
+            if (found instanceof DeletedMessage) {
+                return new Statuses.Deletion_Status(true); // it’s already deleted
+            };
 
-			if (found instanceof DeletedMessage) {
-				return false; // it’s already deleted
-			};
+            for (let index = 0; index < this.#messages.length; index++) { // Replace the instance on the list
+                if (found == this.#messages[index]) {
+                    this.#messages[index] = new DeletedMessage(this.#messages[index]);
+                    return new Statuses.Deletion_Status(true); // finally deleted
+                };
+            };
+        })());
+    };
 
-			for (let index = 0; index < this.#messages.length; index++) { // Replace the instance on the list
-				if (found == this.#messages[index]) {
-					this.#messages[index] = new DeletedMessage(this.#messages[index]);
-					return true;
-				};
-			};
-		})());
-	};
+    /**
+     * Search for a message. 
+     * 
+     * @function find
+     * @param {Message|DeletedMessage|String|Number|Date} message - The message to search. If not provided, all messages will be returned as an alias of messages
+     * @returns {Message|DeletedMessage} the message
+     * @throws {Errors.NotFoundError_Message} when the message is not found
+     */
+    find(message) {
+        let ID = (message instanceof Message || message instanceof DeletedMessage) ? message._id : message;
+        let matching = this.#messages.filter(m => (m._id == ID))[0];
+        if (!matching) {
+            throw new Errors.NotFoundError_Message(ID);
+        };
+        return matching;
+    };
 
-	/**
-	 * Search for a message. 
-	 * 
-	 * @function find
-	 * @param {Message|DeletedMessage|String|Number|Date} message - The message to search. If not provided, all messages will be returned as an alias of messages
-	 * @returns {Message|DeletedMessage|undefined} the message, or undefined if not found (doesn’t throw an error)
-	 */
-	find(message) {
-		return message ? this.#messages.filter(
-			([Message, DeletedMessage].some((type) => (message instanceof type))) ? 
-				/**
-				 * Boolean search for the instance
-				 * @param contained_message the message
-				 * @returns {Boolean} true if the message was found, even by ID
-				 */
-				(contained_message) => (
-					compare(contained_message, message)
-				) : 
-				/**
-				 * Filter the messages by name or creation ID
-				 * @param contained_message the message
-				 * @returns {Boolean} true if matching
-				 */
-				(contained_message) => ([contained_message._id, contained_message.created_on].some(
-					/**
-					 * Verify if the data’s ID or date matches
-					 * @param data 
-					 * @returns {Boolean}
-					 */
-					(data) => (data == message)))
-		)[0] : this.#messages;
-	};
+    /**
+     * Create a message.
+     * 
+     * @function create
+     * @see Message
+     * @param {Message} message - the message to append. If not, a message will be appended using all arguments. 
+     * @returns {Message} the created message
+     */
+    create(message) {
+        message = message instanceof Message ? message : new Message(...arguments);
+        this.#messages.push(message);
+        return (message);
+    };
 
-	/**
-	 * Flag a message. 
-	 * @param {Message|String|Number} 
-	 * @returns {Boolean|undefined} true if the thread was flagged; false if not changed; undefined if not found
-	 */
-	flag(message) {
-		let found = this.find(message);
-		return found ? (() => {
-			found.flagged = true;
-			return this.find(message)?.flagged;
-		}) : found;
-	};
+    /**
+     * Flag a message. 
+     * @param {Message|String|Number} 
+     * @returns {Statuses.Reported_State} true if the thread was flagged; false if not changed
+     * @throws {Errors.NotFoundError_Message} when the message isn’t found (relies on .find())
+     */
+    flag(message) {
+        let found = this.find(message);
+        return found ? (() => {
+            found.flagged = new Statuses.Reported_State(true);
+            return this.find(message)?.flagged;
+        }) : found;
+    };
 };
 
 class MessageBoard extends Pigeon {
-	/**
-	 * The message threads
-	 * @type {Set<MessageThread>}
-	 */
-	threads = new Set();
+    /**
+     * The message threads
+     * @type {Set<MessageThread>}
+     */
+    threads = new Set();
 
-	/**
-	 * Message board’s description
-	 */
-	text;
+    /**
+     * Message board’s description
+     */
+    text;
 
-	/**
-	 * Deletes a thread
-	 * 
-	 * @function delete
-	 * @param {MessageThread|String|Number} thread - the message thread (or its thread) to delete
-	 * @param {String} key - the management key
-	 * @returns {Boolean|undefined} true if the thread was deleted; undefined if not found
-	 */
-	delete(thread, key) {
-		let found = this.find(thread);
-		
-		return found ? (() => {
-			found._key.input = key; // Attempt authentication; will not continue when an error occurs
-			this.threads.delete(found);
-			return (true);
-		}) : found;
-	};
+    /**
+     * Deletes a thread
+     * 
+     * @function delete
+     * @param {MessageThread|String|Number} thread - the message thread (or its thread) to delete
+     * @param {String} key - the management key
+     * @returns {Statuses.Deletion_Status} true if the thread was deleted; false otherwise
+     * @throws {import('common-errors').AuthenticationRequiredError} when authentication fails
+     */
+    delete(thread, key) {
+        let found = this.find(thread);
+        
+        return found ? (() => {
+            found._key.input = key; // Attempt authentication; will not continue when an error occurs
+            this.threads.delete(found);
+            return new Statuses.Deletion_Status(!this.threads.has(found));
+        }) : found;
+    };
 
-	/**
-	 * Flag a thread
-	 * 
-	 * @function flag
-	 * @param {MessageThread|String|Number} 
-	 * @returns {Boolean|undefined} true if the thread was flagged; false if not changed; undefined if not found
-	 */
-	flag(thread) {
-		let found = this.find(thread);
+    /**
+     * Flag a thread
+     * 
+     * @function flag
+     * @param {MessageThread|String|Number} 
+     * @returns {Statuses.Reported_State|undefined} true if the thread was flagged; false if not changed; undefined if not found
+     */
+    flag(thread) {
+        let found = this.find(thread);
 
-		return found ? (() => {
-			found.flagged = true;
-			return (this.find(thread)?.flagged);
-		})() : found;
-	};
+        return found ? (() => {
+            found.flagged = new Statuses.Reported_State(true);
+            return (this.find(thread)?.flagged);
+        })() : found;
+    };
 
-	/**
-	 * Search for a message. 
-	 * 
-	 * @function find
-	 * @param {MessageThread|String|Number|Date} thread - The message to search. If not provided, all messages will be returned as an alias of messages
-	 * @returns {MessageThread|undefined} the message or undefined if not found (doesn’t throw an error)
-	 */
-	find(thread) {
-		return Array.from(this.threads).filter((thread instanceof MessageThread)
-			? ((threads) => (compare(thread, threads)))
-			: ((threads) => ([threads._id, threads.created_on].some((value) => (value == thread))))
-		)[0];
-	};
-}
+    /**
+     * Search for a message thread for the top `size` most recent threads. 
+     * 
+     * @function find
+     * @param {MessageThread|String|Number|Date} thread - The message thread to search. If not provided, all messages will be returned as an alias of messages
+     * @param {Number} [size=10] - the search size: If positive, it’ll return the most recent threads. If negative, the least recent threads will be returned. By default, the top 10 most recent threads will be returned. 
+     * @returns {MessageThread|MessageThread[]} the message threads
+     * @throws {Errors.NotFoundError_Thread} when the thread is not found
+     */
+    find(thread, size = 10) {
+        let MULTI_SEARCH = (!thread); // When only the thread isn’t provided
+        MULTI_SEARCH && z.number().int().parse(size); // attempt parsing if the size is provided
+        
+        /**
+         * Perform a search for a single thread. 
+         * @function single
+         * @returns {MessageThread}
+         */
+        const single = () => {
+            let ID = (thread instanceof MessageThread) ? thread._id : thread;
+            let matching = Array.from(this.threads).filter(t => (t._id == ID))[0];
+            
+            if (!matching) {
+                throw new Errors.NotFoundError_Thread(ID);
+            };
+            
+            return matching;
+        }
+
+        /**
+         * Find the most recent `size` threads. 
+         * @returns {MessageThread[]} the sorted message threads
+         */
+        const multi = () => (
+            Array.from(this.threads).sort(
+                (size >= 0) // size determination
+                    ? (first, second) => (second.bumped_on - first.bumped_on) // If positive, sort in descending order
+                    : (first, second) => (first.bumped_on - second.bumped_on) // Otherwise, sort in ascending order
+            ).slice(0, size)
+        );
+        
+        return MULTI_SEARCH ? multi() : single();
+    };
+
+    /**
+     * Create a thread.
+     *  
+     * @function create
+     * @see MessageThread
+     * @returns {MessageThread} the created thread
+     */
+    create() {
+        let thread = new MessageThread(...arguments);
+        this.threads.add(thread);
+        return (thread);
+    };
+};
 
 Message.parent = MessageThread;
 MessageThread.parent = MessageBoard;
 
-module.exports = {Message, MessageThread, MessageBoard}
+module.exports = {Message, DeletedMessage, MessageThread, MessageBoard}
