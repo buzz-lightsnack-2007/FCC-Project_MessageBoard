@@ -9,6 +9,7 @@
 	"dependencies": {
 		"body-parser": "^1.15.2",
 		"bcryptjs": "latest",
+		"bcrypt": "latest",
 		"chai": "^4.2.0",
 		"chai-http": "^3.0.0",
 		"common-errors": "latest",
