@@ -101,3 +101,6 @@ pnp.*
 
 # doc-search index
 .doc-search-index
+
+# Agents do not need to be tracked in git
+.agents/
