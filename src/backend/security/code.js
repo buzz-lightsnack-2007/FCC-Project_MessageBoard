@@ -30,7 +30,7 @@ const hash_config = {
  * @param {Boolean} verbose - Whether to print out the configuration being used
  * @param {String} delimiter - The delimiter to use when printing the configuration
  */
-const config = (verbose = false, delimiter = "\n\t- ") => {
+const config = (verbose = process.env?.verbose, delimiter = "\n\t- ") => {
 	if (hash_config[`native`]) {
 		try {
 			bcrypt = require('bcrypt');
@@ -41,7 +41,7 @@ const config = (verbose = false, delimiter = "\n\t- ") => {
 		};
 	};
 
-	verbose && console.log(`Using the following authentication configuration: ${delimiter} ${Object.entries(hash_config).map(([key, value]) => `${key}: \t${value || `\e[2m(unspecified)\e[0m`}`).join(delimiter)}`);
+	verbose && console.log(`Using the following authentication configuration: ${delimiter} ${Object.entries(hash_config).map(([key, value]) => `${key}: \t${value || `\x1b[2m(unspecified)\x1b[0m`}`).join(delimiter)}`);
 };
 
 config();
@@ -70,10 +70,14 @@ class Hash {
 	 * 
 	 * Use this if the hash was already created and was, for example, stored in a database. 
 	 * 
-	 * @param {string} hash 
+	 * @param {string|Hash} hash 
 	 */
 	constructor(hash) {
-		this.#hash = hash;
+		if (zod.string().safeParse(hash).success) {
+			this.#hash = hash;
+		} else {
+			this.#hash = hash?.hash; 
+		};
 	};
 
 	/**
