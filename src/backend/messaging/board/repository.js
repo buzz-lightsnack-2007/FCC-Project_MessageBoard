@@ -60,8 +60,9 @@ class BoardRepository {
 		/**
 		 * Callback to find a board
 		 * @param {Object} query - The query to find the board
+		 * @returns {types.Board[]|null} The found board(s) or null if not found
 		 */
-		find: async (query) => {
+		find: async (query, ...args) => {
 			return query;
 		},
 
@@ -71,6 +72,11 @@ class BoardRepository {
 		 */
 		update: temp
 	};
+
+	/**
+	 * The last board used
+	 */
+	last; 
 
 	/**
 	 * Creates a new Board instance.
@@ -83,6 +89,8 @@ class BoardRepository {
 		if (this.callbacks.create) {
 			result = await this.callbacks.create(board);
 		};
+
+		if (result) {this.last = board; }; 
 
 		return (result) ? board : result;
 	};
@@ -103,6 +111,8 @@ class BoardRepository {
 			result = await this.callbacks.erase(board);
 		};
 
+		if (result) {this.last = board; }; 
+
 		return (result) ? board : result;
 	}; 
 
@@ -111,20 +121,26 @@ class BoardRepository {
 	 * 
 	 * @param {Object} query - The query to find the board.
 	 * @param {string} method - The method of `ThreadRepository` to use in conjunction with this method. 
-	 * @returns {types.Board|Function} The found board. If a method is provided, a function that takes the method's remaining parameters is returned instead.
+	 * @returns {types.Board[]|Function[]} The found board. If a method is provided, a function that takes the method's remaining parameters is returned instead.
 	 */
-	async find(query, method) {
-		let result = query; 
-		result = await this.callbacks.find(query);
-		if (result && !(result instanceof types.Board)) {
-			result = new types.Board(result);
+	async find(query, method, ...arguments) {
+		let result; 
+		result = await this.callbacks.find(query, ...arguments);
+		if (result && ((result instanceof Array) ? result.length : 1) > 0) {
+			if (!(result instanceof Array)) {
+				result = [result]; 
+			}; 
+
+			result = result.map(board => new types.Board(board)); 
 		}; 
 		
-		if (result && method && zod.string().safeParse(method).success) {
-			return async (...args) => {
-				let threadRepo = new OtherRepositories.ThreadRepository();
-				return await threadRepo[method](result, ...args);
-			};
+		if (result?.length && method && zod.string().safeParse(method).success) {
+			return result.map(board =>
+				async (...args) => {
+					let threadRepo = new OtherRepositories.ThreadRepository();
+					return await threadRepo[method](board, ...args);
+				}
+			);
 		};
 
 		return result;
@@ -141,6 +157,10 @@ class BoardRepository {
 		if (!id) {return false;}
 
 		let result = await this.callbacks.update(board);
+		if (result) {
+			this.last = board;
+		}; 
+
 		return result; 
 	};
 
@@ -150,6 +170,18 @@ class BoardRepository {
 	 */
 	constructor(callbacks) {
 		callbacks && Object.assign(this.callbacks, callbacks);
+	};
+
+	/**
+	 * Export the board in preparation for saving to the database. 
+	 * 
+	 * @type {types.Board} board - The board to export
+	 */
+	export(board) {
+		// Get IDs of its threads
+		let ids = board.threads.map(thread => ((thread instanceof Object) ? thread._id : thread));
+
+		return { ...board, "threads": ids };
 	};
 };
 
