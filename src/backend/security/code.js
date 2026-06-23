@@ -103,12 +103,13 @@ class Hash {
 	 * @method compare
 	 * @param {string} password - the password to compare
 	 * @param {boolean} [raise = false] - whether to throw an error if the password does not match
-	 * @returns {boolean} True if the password matches the hash, false otherwise
+	 * @param {string|Number} [id = null] - the ID of the resource being accessed, if available
+	 * @returns {securityMessaging["Messages"]["Failure"]|securityMessaging["Messages"]["Success"]} True if the password matches the hash, false otherwise
 	 */
-	compare(password, raise = false) {
+	compare(password, raise = false, id = null) {
 		const result = bcrypt.compareSync(password, this.#hash);
 
-		let message = (result) ? new securityMessaging.Messages.Success(password, this.#hash, this) : new securityMessaging.Messages.Failure(password, this.#hash, this);
+		let message = (result) ? new securityMessaging.Messages.Success(password, this.#hash, id, this) : new securityMessaging.Messages.Failure(password, this.#hash, id, this);
 
 		if (raise && !result) { throw message.error; };
 		return message;

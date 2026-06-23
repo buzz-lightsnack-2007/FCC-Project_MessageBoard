@@ -27,17 +27,25 @@ const Errors = {
 			hash;
 
 			/**
+			 * The resource being accessed
+			 * @type {String|Number}
+			 */
+			id;
+
+			/**
 			 * @constructor
 			 * @param {String} password - The password used
 			 * @param {import('./code').Hash} hash - The hash of the entity being authenticated
+			 * @param {String|Number} id - The resource being accessed
 			 * @param {String} message - any message
 			 * @param {Error} inner_error - the Error instance that caused the current error. Stack trace will be appended. 
 			 * @see {@link https://www.npmjs.com/package/common-errors#authrequired}
 			 */
-			constructor(password, hash, ...arguments) {
+			constructor(password, hash, id, ...arguments) {
 				super(...arguments);
 				this.password = password;
 				this.hash = hash;
+				this.id = id;
 			};
 		}
 }
@@ -63,15 +71,22 @@ const Messages = {
 			result;
 
 			/**
+			 * The resource being accessed
+			 * @type {String|Number}
+			 */
+			id;
+
+			/**
 			 * @constructor
 			 * @param {string} password - The password of the authenticated entity
 			 * @param {import('./code').Hash} hash - The hash of the authenticated entity
 			 * @param {Object} cause - the process that has determined a success result
 			 * @param {String} description - a description of the message
 			 */
-			constructor(password, hash, cause, description = ``) {
+			constructor(password, hash, id, cause, description = ``) {
 				super(hash, cause, description);
 				this.password = password;
+				this.id = id; 
 			};
 		},
 	"Failure":
@@ -100,14 +115,22 @@ const Messages = {
 			get hash() { return this.error?.hash; }
 
 			/**
+			 * The resource being accessed
+			 * @type {String|Number}
+			 */
+			get id() { return this.error?.id; }
+			set id(value) { if (this.error) {this.error.id = value;}; }
+
+			/**
 			 * @constructor
 			 * @param {string} password - The password used
 			 * @param {import('./code').Hash} hash - The hash of the entity being authenticated
+			 * @param {String|Number} id - The resource being accessed
 			 * @param {Object} cause - the process that has determined a failure result
 			 * @param {String} description - a description of the message
 			 */
-			constructor(password, hash, cause = undefined, description = undefined) {
-				super(new Errors.AuthenticationError(password, hash), cause, description);
+			constructor(password, hash, id, cause = undefined, description = undefined) {
+				super(new Errors.AuthenticationError(password, hash, id), cause, description);
 			};
 		}
 };
