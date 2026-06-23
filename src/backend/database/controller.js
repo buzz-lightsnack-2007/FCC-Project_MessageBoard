@@ -74,6 +74,16 @@ class DataController {
 	cache = new Set(); 
 
 	/**
+	 * Ensures that a correct filter is in the correct format
+	 * 
+	 * `filterify` converts any input string or number into a filter. 
+	 * @protected
+	 * @param {Object|String|Number|String[]|Number[]} filter - the filter to use
+	 * @returns {Object} - the filter
+	 */
+	filterify = filterify;
+
+	/**
 	 * Data within active caches
 	 * @type {Array<*>}
 	 */
@@ -91,7 +101,7 @@ class DataController {
 	 * @returns {Set<Object>} - the loaded data
 	 */
 	async load(filter, replace = false, raise = true) {
-		filter = filterify(filter); 
+		filter = this.filterify(filter); 
 
 		/**
 		 * @param {DataCache} data - the data cache 
@@ -140,7 +150,7 @@ class DataController {
 	 * @returns {Array<*>} - the selected data
 	 */
 	async select(filter, use = true) {
-		filter = filterify(filter); 
+		filter = this.filterify(filter); 
 		await this.load(filter);
 
 		let matching = this.data.filter(sift(filter));
@@ -161,7 +171,7 @@ class DataController {
 	 * @returns {Array<*>} - the closed data
 	 */
 	async close(filter, update = true, force = false) {
-		filter = filterify(filter); 
+		filter = this.filterify(filter); 
 		let matching = await this.select(filter);
 
 		if (matching.length) {
@@ -198,7 +208,7 @@ class DataController {
 	 * @param {Object} filter - the filter to use
 	 */
 	async pop(filter) {
-		filter = filterify(filter);
+		filter = this.filterify(filter);
 
 		let matching = await this.select(filter);
 		if (matching.length) {
