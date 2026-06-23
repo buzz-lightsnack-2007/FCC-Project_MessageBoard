@@ -1,9 +1,11 @@
 ﻿/**
  * @requires zod
  * @requires sift
+ * @requires common-errors
  * @requires ./simulated/Container
  */
 const zod = require(`zod`).z; 
+const errors = require(`./messaging`).Errors;
 const sift = require(`sift`); 
 const Container = require(`./simulated/container`); 
 
@@ -20,15 +22,23 @@ class DataCache {
 	 */
 	get id() {
 		return this.data?._id; 
-	}
+	};
+
+	/**
+	 * Operations on the data
+	 * @type {Number}
+	 */
+	operations; 
 
 	/**
 	 * Initialize a data cache. 
 	 * @constructor
 	 * @param {*} data - the data to use
+	 * @param {Number} [operations = 0] - the number of operations on the data
 	 */
-	constructor(data) {
+	constructor(data, operations = 0) {
 		this.data = data; 
+		this.operations = operations; 
 	}; 
 }; 
 
@@ -74,11 +84,13 @@ class DataController {
 	/**
 	 * Fetch in data
 	 * 
+	 * @async
 	 * @param {Object} filter - the filter to use
 	 * @param {Boolean} [replace = false] - determines if the cache should be replaced if it already exists
+	 * @param {Boolean} [raise = true] - determines if an error should be raised if the data wasn’t found
 	 * @returns {Set<Object>} - the loaded data
 	 */
-	load(filter, replace = false) {
+	async load(filter, replace = false, raise = true) {
 		filter = filterify(filter); 
 
 		/**
@@ -101,17 +113,19 @@ class DataController {
 			return insertable; 
 		}; 
 
-		let matching = new Set(this.database.find(filter)); 
+		let matching = new Set(await this.database.find(filter)); 
 		matching.length && matching.forEach((data) => {
 			let cache = new DataCache(data); 
 			let insertable = deduplicate(cache); 
 
 			if (insertable) {
 				this.cache.add(cache); 
-			} else {
-				matching.delete(data); 
-			}; 
+			};
 		}); 
+
+		if (!matching.size && raise) {
+			throw new errors.NotFoundError(JSON.stringify(filter));
+		}; 
 
 		return matching;
 	}; 
@@ -120,14 +134,22 @@ class DataController {
 	 * Select data.
 	 * 
 	 * Data will be loaded if it is not already cached.
+	 * @async
 	 * @param {Object} filter - the filter to use
+	 * @param {Boolean} [use=true] - determines if it should count as an operation on the data
 	 * @returns {Array<*>} - the selected data
 	 */
-	select(filter) {
+	async select(filter, use = true) {
 		filter = filterify(filter); 
-		this.load(filter);
+		await this.load(filter);
 
 		let matching = this.data.filter(sift(filter));
+		if (use) {
+			matching.forEach((data) => {
+				let cache = Array.from(this.cache).find((c) => c.data == data);
+				cache && cache.operations++;
+			});
+		};
 		return matching;
 	};
 
@@ -135,47 +157,62 @@ class DataController {
 	 * Close the data, updating the database if necessary.
 	 * @param {Object} filter - the filter to use
 	 * @param {Boolean} [update = true] - determines if the database should be updated
+	 * @param {Boolean} [force = false] - determines if the data should be closed even if it has operations
 	 * @returns {Array<*>} - the closed data
 	 */
-	close(filter, update = true) {
+	async close(filter, update = true, force = false) {
 		filter = filterify(filter); 
-		let matching = this.select(filter);
+		let matching = await this.select(filter);
 
-		matching.length && matching.forEach((data) => {
-			if (update) {
-				// Update the database with the new data
-				let id = data._id;
-				this.database.update({ _id: id }, data); 
-			}; 
-
-			this.cache.forEach((cache) => 
-				((data == cache.data) && this.cache.delete(cache))
-			); 
-		}); 
+		if (matching.length) {
+			for (const data of matching) {
+				if (update) {
+					// Update the database with the new data
+					let id = data._id;
+					await this.database.update({ _id: id }, data); 
+				}; 
+		
+				this.cache.forEach((cache) => {
+					if (data == cache.data) {
+						cache.operations--; 
+						if (cache.operations <= 0 || force) {
+							this.cache.delete(cache); 
+						}; 
+					}
+				}); 
+			};
+		};
 
 		return matching;
 	}; 
+
+	get insert() {
+		return this.database.insert.bind(this.database); 
+	}
 
 	/**
 	 * Delete the data. 
 	 * 
 	 * Data will be removed from the cache and the database, but will be returned here. 
+	 * @async
 	 * @param {Object} filter - the filter to use
 	 */
-	pop(filter) {
+	async pop(filter) {
 		filter = filterify(filter);
 
-		let matching = this.select(filter);
-		matching.length && matching.forEach((data) => {
-			// Delete the data from the database
-			let id = data._id;
-			this.database.delete({ _id: id });
+		let matching = await this.select(filter);
+		if (matching.length) {
+			for (const data of matching) {
+				// Delete the data from the database
+				let id = data._id;
+				await this.database.delete({ _id: id });
 
-			// Delete the data from the cache
-			this.cache.forEach((cache) => 
-				((data == cache.data) && this.cache.delete(cache))
-			);  
-		}); 
+				// Delete the data from the cache
+				this.cache.forEach((cache) => 
+					((data == cache.data) && this.cache.delete(cache))
+				);  
+			};
+		}; 
 
 		return matching;
 	};

@@ -9,7 +9,7 @@ const sift = require(`sift`);
  * @class Container
  * A simulated database
  * 
- * **Warning**: This is a simulated database and should not be used in production. Since it is only in-memory, any data stored here will be lost when the application is restarted.
+ * **Warning**: This is a simulated database and should not be used in production. Since it is only in-memory, any data stored here will be lost when the application is restarted. Furthermore, methods are artificially made async, but please see the documentation for each method to see if it is actually async or not.
  */
 class Container {
 	/**
@@ -21,15 +21,17 @@ class Container {
 
 	/**
 	 * Finds items in the database that match a query. The query is a MongoDB-like query object.
+	 * @async
 	 * @param {Object} query - the query to find items that match
 	 * @returns {Object[]} an array of items that match the query
 	 */
-	find(query) {
+	async find(query) {
 		return Array.from(this.#data).filter(sift(query));
 	};
 
 	/**
 	 * Inserts an item into the database. 
+	 * @async
 	 * @param {Object[]} item - the item or items to insert
 	 * @param {Function} _idGenerationAlgorithm - an optional algorithm to generate unique IDs for the items being inserted. The default algorithm is to use the current timestamp. 
 	 * @returns {Object} the inserted item or items
@@ -57,7 +59,7 @@ class Container {
 					let id = Date.now();
 
 					// Check that the ids set doesn't already contain the generated id.
-					while (ids.includes(id)) {
+					while (ids.includes(id) && Array.from(this.#data).some(d => d?._id == id)) {
 						id += 1;
 					};
 
@@ -82,8 +84,8 @@ class Container {
 		 * @param {String[]} ids - the array of IDs of the items to read back
 		 * @returns {Object} dictionary containing acknowledged count and IDs of the inserted items 
 		 */
-		const readback = (ids) => {
-			const readItems = this.find({ _id: { $in: ids } });
+		const readback = async (ids) => {
+			const readItems = await this.find({ _id: { $in: ids } });
 
 			let result = {
 				"acknowledged": readItems.length,
@@ -120,11 +122,12 @@ class Container {
 
 	/**
 	 * Updates items that matches the filter. 
+	 * @async
 	 * @param {Object} filter - the query to find items to update
 	 * @param {Object} update - the update operations to apply
 	 */
-	update(filter, update) {
-		const items = this.find(filter);
+	async update(filter, update) {
+		const items = await this.find(filter);
 		items.forEach(item => this.#updating(item, update));
 
 		return {
@@ -136,11 +139,12 @@ class Container {
 
 	/**
 	 * Deletes items matching the filter. 
+	 * @async
 	 * @param {Object} filter - the query to find items to delete
 	 * @returns {Object} the result of the delete operation
 	 */
-	delete(filter) {
-		const items = this.find(filter);
+	async delete(filter) {
+		const items = await this.find(filter);
 		items.forEach(item => this.#data.delete(item));
 		return {
 			"acknowledged": items.length,
@@ -153,8 +157,8 @@ class Container {
 	 * @param {Object} filter - the query to find items to count
 	 * @returns {Number} the number of items that match the filter
 	 */
-	count(filter) {
-		return filter ? this.find(filter).length : this.#data.size;
+	async count(filter) {
+		return filter ? (await this.find(filter)).length : this.#data.size;
 	};
 };
 
