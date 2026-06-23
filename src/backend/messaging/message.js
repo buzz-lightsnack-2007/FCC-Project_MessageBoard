@@ -6,7 +6,6 @@
  */
 
 const zod = require('zod');
-const { object } = require('zod/v3');
 
 /**
  * @class Message
@@ -56,7 +55,7 @@ class Message {
 
 	/**
 	 * The children of the message
-	 * @type {array}
+	 * @type {Message[]|Number[]}
 	 */
 	children = [];
 
@@ -67,6 +66,12 @@ class Message {
 	tags = [];
 
 	/**
+	 * Deleted or hidden
+	 * @type {boolean}
+	 */
+	hidden = false;
+
+	/**
 	 * Creates or copies a message.
 	 * 
 	 * @param {Message|string} content - the message to copy from
@@ -75,9 +80,8 @@ class Message {
 	 * @param {dict} content.dates - the message dates to include
 	 * @param {Date} content.dates.created - the message created date
 	 * @param {Date} content.dates.updated - the message updated date
-	 * @param {array} content.children - the message children to copy
+	 * @param {Number[]} content.children - the message children to copy. Note here that children are stored as an array of message IDs, not message objects; you can just swap them out later. 
 	 * @param {array} content.tags - the message tags to copy
-	 * @param {string} content - if content is a string, it will be used as the message text
 	 * @constructor
 	 */
 	constructor(content) {
@@ -95,27 +99,18 @@ class Message {
 				}).safeParse(content.dates),
 				"children": content?.children && zod.array(zod.coerce.number()).safeParse(content?.children),
 				"tags": content?.tags && zod.array(zod.coerce.string()).safeParse(content?.tags),
-				"author": content?.author && zod.coerce.number().safeParse(content?.author)
+				"author": content?.author && zod.coerce.number().safeParse(content?.author),
+				"hidden": zod.coerce.boolean().safeParse(content?.hidden)
 			};
 
-			/**
-			 * Maps fields to copy functions
-			 */
-			let copier = {
-				"_id": this._id, "text": this.text, "title": this.title, "date": this.dates, "children": this.children, "tags": this.tags, "author": this.author
-			};
-
-			Object.entries(copier).forEach(
-				/**
-				 *
-				 * @param {String} attribute - the attribute name
-				 * @param {*} reference - the reference to the corresponding attribute in the message object
-				 */
-				(attribute, reference) => {
-					if (copy[attribute]?.success) {
-						reference = copy[attribute].data;
-					};
-				});
+			this._id = copy._id?.data || null;
+			this.text = copy.text?.data || null;
+			this.title = copy.title?.data || null;
+			this.dates = copy.date?.data || { created: new Date(), updated: new Date() };
+			this.children = copy.children?.data || [];
+			this.tags = copy.tags?.data || [];
+			this.author = copy.author?.data || null;
+			this.hidden = copy.hidden?.data || false;
 		} else if (content && zod.coerce.string().safeParse(content).success) {
 			this.text = content;
 		};
@@ -128,26 +123,10 @@ class Message {
  * @extends Message
  */
 class Reaction extends Message {
-	/**
-	 * @private
-	 * @type {String}
-	 * The reaction type
-	 */
-	#reaction;
-
-	/**
-	 * The reaction type
-	 * @type {String}
-	 */
-	get text() {
-		return this.#reaction;
-	};
-	set text(value) {
-		this.#reaction = value ? zod.emoji().parse(value) : null;
-	};
-
 	constructor(content) {
 		super(content);
+
+		this.text = (content instanceof Object ? content?.text : content) ? zod.emoji().parse(content instanceof Object ? content.text : content) : null; 
 	};
 };
 
