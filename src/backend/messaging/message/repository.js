@@ -1,46 +1,10 @@
 ﻿const zod = require(`zod`); 
 const sift = require(`sift`); 
+
 const types = {
-	Board: require(`./board`), 
+	"Board": require(`../board/board`), 
 	...require(`./message`)
-}
-
-/**
- * Repository for managing Board instances.
- */
-class BoardRepository {
-	/**
-	 * Creates a new Board instance.
-	 * @param {Object|string} data - Board data or title.
-	 * @returns {types.Board} The created board.
-	 */
-	create(data) {
-		return new types.Board(data);
-	}
-
-	/**
-	 * Updates a board's information.
-	 * @param {types.Board} board - The board instance to update.
-	 * @param {Object} data - The updated data.
-	 * @returns {types.Board} The updated board.
-	 */
-	update(board, data) {
-		Object.assign(board, data);
-		return board;
-	}
-
-	/**
-	 * Deletes a board.
-	 * @param {types.Board} board - The board to delete.
-	 * @param {boolean} [force=false] - If true, the board is considered fully removed.
-	 * @returns {types.Board|boolean} The board with hidden=true or true if forced.
-	 */
-	delete(board, force = false) {
-		if (force) return true;
-		board.hidden = true;
-		return board;
-	}
-}
+};
 
 /**
  * Base class for repositories that manage children of a parent object.
@@ -68,14 +32,21 @@ class BaseChildRepository {
 	create(parent, data) {
 		let child; 
 		for (child_type = 0; child_type < this.childClasses.length; child_type++) {
-			try {
-				child = new this.childClasses[child_type](data);
-				break;
-			} catch (e) {
-				if (child_type === this.childClasses.length - 1) {
-					throw e; 
+			// Check if already an instance
+			if (data instanceof this.childClasses[child_type]) {
+				child = data; 
+				break; 
+			} else {
+				try {
+					child = new this.childClasses[child_type](data);
+					break;
+				} catch (e) {
+					if (child_type === this.childClasses.length - 1) {
+						throw e; 
+					}; 
 				}; 
-			}; 
+			}
+
 		}; 
 		parent[this.childrenField].push(child);
 		return child;

@@ -103,13 +103,13 @@ class Message {
 				"hidden": zod.coerce.boolean().safeParse(content?.hidden)
 			};
 
-			this._id = copy._id?.data || null;
-			this.text = copy.text?.data || null;
-			this.title = copy.title?.data || null;
+			this._id = copy._id?.data || undefined;
+			this.text = copy.text?.data || undefined;
+			this.title = copy.title?.data || undefined;
 			this.dates = copy.date?.data || { created: new Date(), updated: new Date() };
 			this.children = copy.children?.data || [];
 			this.tags = copy.tags?.data || [];
-			this.author = copy.author?.data || null;
+			this.author = copy.author?.data || undefined;
 			this.hidden = copy.hidden?.data || false;
 		} else if (content && zod.coerce.string().safeParse(content).success) {
 			this.text = content;

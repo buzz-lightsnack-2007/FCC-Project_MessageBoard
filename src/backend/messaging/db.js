@@ -1,6 +1,6 @@
 ﻿const DataController = require('../database/controller.js');
 const db = require(`../database/simulated/registry.js`).Register; 
-const Board = require(`./board.js`); 
+const Board = require(`./board/board.js`); 
 
 
 class MessagesManager extends DataController {
@@ -23,9 +23,5 @@ class MessagingManager {
 		this.#controllers['boards'] = new BoardsManager();
 	};
 
-	async add(board, message) {
-		if (board instanceof BoardsManager || board instanceof Object) {
 
-		}
-	};
 }

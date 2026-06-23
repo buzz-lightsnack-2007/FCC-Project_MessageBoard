@@ -6,7 +6,7 @@
  */
 const zod = require("zod");
 
-const types = require(`./message`);
+const types = require(`../message`);
 
 /**
  * A message board
@@ -79,21 +79,11 @@ class Board {
 				"roles": content?.roles && zod.array(zod.any()).safeParse(content.roles)
 			};
 
-			/**
-			 * Maps fields to copy functions
-			 */
-			let copier = {
-				"_id": this._id, "title": this.title, "description": this.description, "children": this.threads, "roles": this.roles
-			};
-
-			Object.entries(copier).forEach(
-				/**
-				 * @param {String} attribute - the attribute name
-				 * @param {*} reference - the reference to the corresponding attribute in the message object
-				 */
-				(attribute, reference) => {
-					if (copy[attribute]?.success) { reference = copy[attribute].data; };
-				});
+			this._id = copy._id?.success ? copy._id.data : undefined;
+			this.title = copy.title?.success ? copy.title.data : undefined;
+			this.description = copy.description?.success ? copy.description.data : undefined;
+			this.threads = copy.children?.success ? copy.children.data : [];
+			this.roles = copy.roles?.success ? copy.roles.data : [];
 		} else if (typeof content == "string") {
 			this.title = content;
 		};
