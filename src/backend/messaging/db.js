@@ -11,7 +11,7 @@
  * @requires ./thread/repository.js
  */
 
-const DataController = require('../database/controller.js');
+const DataController = require('../database/controller.js').DataController;
 const db = require(`../database/simulated/registry.js`).Register; 
 const repositories = {
 	...require(`./message/repository`),
@@ -21,11 +21,20 @@ const repositories = {
 /**
  * Find the hierarchy of parents. 
  * 
- * @param {*} parents 
+ * @param {String[]|Number[]|String} parents 
+ * @returns {String[]|Number[]} - the parents in descending hierarchy (board, thread, message)
  */
 const process_parents = (parents) => {
+	parents = (parents instanceof Set) ? Array.from(parents) : parents; 
 
-}
+	if (Array.isArray(parents)) {
+		return z.array(z.union([z.string(), z.number()])).parse(parents);
+	} else if (!parents) {
+		return null; 
+	}; 
+	
+	return parents.split(`,`); 
+}; 
 
 class MessagesManager extends DataController {
 	constructor() {
@@ -78,7 +87,30 @@ class MessagingManager {
 	/**
 	 * @constructor
 	 */
-	constructor() {};
+	constructor() {
+		let board_methods = {
+			"create": (board) => {
+				return this.#controllers.boards.insert(board); 
+			},
+			"erase": (board) => {
+				return this.#controllers.boards.pop(board);
+			},
+			"find": (query, ...arguments) => {
+				return this.#controllers.boards.select(query, ...arguments);
+			},
+			"update": (board) => {
+				// Replace any item with the same ID in the cache with the updated board
+				for (const cache of this.#controllers.boards.cache) {
+					if (cache.id == board._id) {
+						cache.data = this.#repositories.boards.export(board);
+						break; 
+					}; 
+				}; 
+				return this.#controllers.boards.close(board);
+			}
+		}
+
+	};
 
 	/**
 	 * Find a board, a thread, or a message by its ID. 
@@ -87,7 +119,15 @@ class MessagingManager {
 	 * @param {String[]|Number[]} parents - the parents of the object to find, in descending hierarchy (board, thread, message)
 	 */
 	async find(parents) {
-		
+		parents = process_parents(parents);
+
+		if (parents.length) {
+			let board; 
+			let thread; 
+			let message; 
+
+			
+		}
 	};
 
 }
