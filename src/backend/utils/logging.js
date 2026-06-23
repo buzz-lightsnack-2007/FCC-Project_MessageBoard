@@ -118,7 +118,22 @@ class Logging {
 		})(); 
 		this.icon = icon;
 	}
-}
+};
+
+/**
+ * An informational log entry
+ * @class Logging.Info
+ */
+Logging.info = class InfoMessage extends Logging {
+	/**
+	 * Log an informational message to the server console.
+	 * @constructor
+	 * @param {string} message - The message to log.
+	 */
+	constructor(message) {
+		super(message, `ℹ`);
+	}; 
+}; 
 
 /**
  * A log entry indicating progress

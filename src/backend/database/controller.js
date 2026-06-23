@@ -9,6 +9,25 @@ const errors = require(`./messaging`).Errors;
 const sift = require(`sift`); 
 const Container = require(`./simulated/container`); 
 
+const Logging = require(`../utils/logging`); 
+
+/**
+ * Determines if whether to use a volatile storage (like an in-memory database) or a persistent one (like MongoDB)
+ * @type {Boolean}
+ * @todo move this elsewhere, such that it will also affect if Registry will be enabled
+ */
+const saving = (() => {
+	let saving = process.env?.storage_volatileOnly; 
+	saving = (saving == undefined) ? false : zod.coerce.boolean().parse(saving);
+	
+	/**
+	 * @todo strings should be placed in a separate file, not just the ones below
+	 */
+	new Logging.Logging.info(new Logging.LogDetails(...((saving) ? [`Using MongoDB connection`, `Saving enabled`] : [`Data will be deleted upon program termination.`, `Saving disabled`])));
+
+	return saving; 
+})(); 
+
 class DataCache {
 	/**
 	 * The data
@@ -149,9 +168,9 @@ class DataController {
 	 * @param {Boolean} [use=true] - determines if it should count as an operation on the data
 	 * @returns {Array<*>} - the selected data
 	 */
-	async select(filter, use = true) {
+	async select(filter, use = true, ...arguments) {
 		filter = this.filterify(filter); 
-		await this.load(filter);
+		await this.load(filter, false, ...arguments);
 
 		let matching = this.data.filter(sift(filter));
 		if (use) {
@@ -196,9 +215,20 @@ class DataController {
 		return matching;
 	}; 
 
-	get insert() {
-		return this.database.insert.bind(this.database); 
-	}
+	/**
+	 * Insert data into the database and, optionally, into the cache. 
+	 * 
+	 * @param {*} data - document to insert
+	 * @param {Boolean} [use = false] - determines if it should count as an operation on the data
+	 * @returns 
+	 */
+	insert(data, use = false) {
+		// Make sure to desociate the data, especially if it is an instance
+		let insertable = (data instanceof Object) ? { ...data } : data;
+		use && this.cache.add(new DataCache(insertable, 1));
+
+		return this.database.insert(insertable);
+	};
 
 	/**
 	 * Delete the data. 
@@ -207,10 +237,10 @@ class DataController {
 	 * @async
 	 * @param {Object} filter - the filter to use
 	 */
-	async pop(filter) {
+	async pop(filter, ...arguments) {
 		filter = this.filterify(filter);
 
-		let matching = await this.select(filter);
+		let matching = await this.select(filter, true, ...arguments);
 		if (matching.length) {
 			for (const data of matching) {
 				// Delete the data from the database
