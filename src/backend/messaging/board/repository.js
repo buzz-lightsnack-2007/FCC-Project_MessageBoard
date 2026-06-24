@@ -98,7 +98,6 @@ class BoardRepository {
 	/**
 	 * Deletes a board.
 	 * @param {types.Board|String} board - The board to delete.
-	 * @param {boolean} [force=false] - If true, the board is considered fully removed.
 	 * @returns {types.Board|String|boolean} The deleted board or false if not found.
 	 */
 	async delete (board) {
@@ -120,10 +119,10 @@ class BoardRepository {
 	 * Find the board, then recreate the board itself. 
 	 * 
 	 * @param {Object} query - The query to find the board.
-	 * @param {string} method - The method of `ThreadRepository` to use in conjunction with this method. 
-	 * @returns {types.Board[]|Function[]} The found board. If a method is provided, a function that takes the method's remaining parameters is returned instead.
+	 * @param {*} [arguments] - Additional arguments for the find callback. See the find callback for details.
+	 * @returns {types.Board[]} The found boards
 	 */
-	async find(query, method, ...arguments) {
+	async find(query, ...arguments) {
 		let result; 
 		result = await this.callbacks.find(query, ...arguments);
 		if (result && ((result instanceof Array) ? result.length : 1) > 0) {
@@ -134,15 +133,6 @@ class BoardRepository {
 			result = result.map(board => new types.Board(board)); 
 		}; 
 		
-		if (result?.length && method && zod.string().safeParse(method).success) {
-			return result.map(board =>
-				async (...args) => {
-					let threadRepo = new OtherRepositories.ThreadRepository();
-					return await threadRepo[method](board, ...args);
-				}
-			);
-		};
-
 		return result;
 	};
 
