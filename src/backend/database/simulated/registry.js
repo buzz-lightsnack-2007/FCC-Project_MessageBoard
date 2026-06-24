@@ -23,18 +23,18 @@ class Registry {
 	 * Load the collections. 
 	 */
 	load() {
-		new Logging.Logging.Progress(`Loading collections…`).show();
+		new Logging.Progress(`Loading collections…`).show();
 		Registry.names.forEach((name) => {
-			new Logging.Logging.Progress(new Logging.LogDetails(name, `Loading collection…`)).show();
+			new Logging.Progress(new Logging.LogDetails(name, `Loading collection…`)).show();
 
 			try {
 				this.collections[name] = new Container(name);
-				new Logging.Logging.success(new Logging.LogDetails(name, `Collection loaded.`)).show();
+				new Logging.Success(new Logging.LogDetails(name, `Collection loaded.`)).show();
 			} catch (error) {
 				throw error;
 			};
 		});
-		new Logging.Logging.success(`All collections loaded.`).show();
+		new Logging.Success(`All collections loaded.`).show();
 		return this;
 	}
 

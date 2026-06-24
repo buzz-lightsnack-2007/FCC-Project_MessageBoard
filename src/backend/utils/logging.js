@@ -122,9 +122,9 @@ class Logging {
 
 /**
  * An informational log entry
- * @class Logging.Info
+ * @class Info
  */
-Logging.info = class InfoMessage extends Logging {
+class Info extends Logging {
 	/**
 	 * Log an informational message to the server console.
 	 * @constructor
@@ -137,9 +137,9 @@ Logging.info = class InfoMessage extends Logging {
 
 /**
  * A log entry indicating progress
- * @class Logging.Progress
+ * @class Progress
  */
-Logging.Progress = class ProgressMessage extends Logging {
+class Progress extends Logging {
 	/**
 	 * The display string
 	 * @readonly
@@ -184,9 +184,10 @@ Logging.Progress = class ProgressMessage extends Logging {
 
 
 /**
- * A class that handles logging success messages to the server console.
+ * A success log entry
+ * @class Success
  */
-Logging.success = class SuccessMessage extends Logging {
+class Success extends Logging {
 	/**
 	 * The display string
 	 * @readonly
@@ -230,9 +231,10 @@ Logging.success = class SuccessMessage extends Logging {
 	}
 }
 /**
- * A class that handles logging warning messages to the server console.
+ * A warning log entry
+ * @class Warning
  */
-Logging.warning = class WarningMessage extends Logging {
+class Warning extends Logging {
 	/**
 	 * Error
 	 * @type {Error}
@@ -287,9 +289,10 @@ Logging.warning = class WarningMessage extends Logging {
 }
 
 /**
- * A class that handles logging error messages to the server console.
+ * An error log entry
+ * @class Error
  */
-Logging.error = class ErrorMessage extends Logging.warning {
+class Error extends Logging.warning {
 	/**
 	 * The display string
 	 * @readonly
@@ -333,4 +336,4 @@ Logging.error = class ErrorMessage extends Logging.warning {
 	};
 }
 
-export {Logging, LogDetails, Logging as default};
+export {Logging, LogDetails, Info, Progress, Success, Warning, Error, Logging as default};
