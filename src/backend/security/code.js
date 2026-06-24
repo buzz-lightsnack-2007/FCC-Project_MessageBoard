@@ -8,8 +8,9 @@
 const zod = require('zod');
 const errors = require('common-errors');
 let bcrypt = require('bcryptjs');
+const logging = require(`../utils/logging`); 
 
-let securityMessaging = require('./messaging');
+let securityMessaging = require('./errors');
 
 /**
  * The configuration for hashes
@@ -36,12 +37,17 @@ const config = (verbose = process.env?.verbose, delimiter = "\n\t- ") => {
 			bcrypt = require('bcrypt');
 		} catch (error) {
 			// If bcrypt is not available, fall back to bcryptjs
-			error.message = `bcrypt isn't available, so we're falling back to bcryptjs. ${error.message}`;
-			console.warn(error);
+			new logging.Warning(logging.LogDetails(
+				`Using bcryptjs ${error.message}`,
+				`bcrypt unavailable`
+			)).show(); 
 		};
 	};
 
-	verbose && console.log(`Using the following authentication configuration: ${delimiter} ${Object.entries(hash_config).map(([key, value]) => `${key}: \t${value || `\x1b[2m(unspecified)\x1b[0m`}`).join(delimiter)}`);
+	verbose && new logging.Info(logging.LogDetails(
+		`Using the following authentication configuration: ${delimiter} ${Object.entries(hash_config).map(([key, value]) => `${key}: \t${!([undefined, null].includes(value)) ? value : `\x1b[2m(unspecified)\x1b[0m`}`).join(delimiter)}`,
+		`Authentication Configuration`
+	)).show();
 };
 
 config();
@@ -104,15 +110,16 @@ class Hash {
 	 * @param {string} password - the password to compare
 	 * @param {boolean} [raise = false] - whether to throw an error if the password does not match
 	 * @param {string|Number} [id = null] - the ID of the resource being accessed, if available
-	 * @returns {securityMessaging["Messages"]["Failure"]|securityMessaging["Messages"]["Success"]} True if the password matches the hash, false otherwise
+	 * @returns {Boolean} Whether the password matches the hash
+	 * @throws {securityMessaging.AuthenticationError|securityMessaging.AuthenticationRequiredError} If the password does not match the hash and `raise` is true
 	 */
 	compare(password, raise = false, id = null) {
 		const result = bcrypt.compareSync(password, this.#hash);
 
-		let message = (result) ? new securityMessaging.Messages.Success(password, this.#hash, id, this) : new securityMessaging.Messages.Failure(password, this.#hash, id, this);
-
-		if (raise && !result) { throw message.error; };
-		return message;
+		if (!result && raise) {
+			throw new securityMessaging[(password) ? `AuthenticationError` : `AuthenticationRequiredError`](id);
+		}; 
+		return result; 
 	};
 
 	/**

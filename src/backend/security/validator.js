@@ -10,7 +10,6 @@
 const db = require(`../database/simulated/registry`).Register; 
 const DataController = require(`../database/controller`).DataController; 
 const Hash = require(`./code`).Hash; 
-const securityMessaging = require(`./messaging`).Messages;
 
 class Gate extends DataController {
 	constructor() {
@@ -47,6 +46,7 @@ class UserPassword {
 	 * Validate the password
 	 * @async
 	 * @param {Object} to - Callback functions
+	 * @param {Boolean} [raise = false] - Whether to throw an error if the password is invalid
 	 * @param {Function} to.success - The callback function to call if the password is valid. Will be passed the ID of the resource being accessed.
 	 * @param {Function} to.failure - The callback function to call if the password is invalid. Will be passed the ID of the resource being accessed.
 	 * @returns {Boolean} Whether the password is valid
@@ -58,9 +58,9 @@ class UserPassword {
 		let hash = new Hash(entry?.hash); 
 		const validity = hash.compare(this.password, !(to?.failure), this.id);
 
-		if (to?.success && validity instanceof securityMessaging.Success) {
+		if (to?.success && validity) {
 			return await to.success(this.id);
-		} else if (to?.failure && validity instanceof securityMessaging.Failure) {
+		} else if (to?.failure && !validity) {
 			return await to.failure(this.id);
 		};
 
