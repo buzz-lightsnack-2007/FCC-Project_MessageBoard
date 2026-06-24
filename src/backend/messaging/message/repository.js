@@ -103,33 +103,55 @@ class BaseChildRepository {
 
 	/**
 	 * Imports children for a parent and returns the parent instance.
+	 * 
+	 * **Warning:** This method creates a copy of the parent data and does not modify the original object.
+	 * 
 	 * @param {Object} parentData - The parent data (instance or plain object).
-	 * @param {Function} callback - Async function to fetch children data.
+	 * @param {Function} callback - Async function to fetch children data. This callback receives the child ID and should return the corresponding data for that child.
 	 * @returns {Promise<Object>} The parent instance with populated children.
 	 */
 	async import(parentData, callback) {
-		const id = parentData._id;
-		const childrenData = await callback(id);
-		const childrenInstances = childrenData.map(d => {
-			let child;
-			for (child_type = 0; child_type < this.childClasses.length; child_type++) {
-				try {
-					child = new this.childClasses[child_type](data);
-					break;
-				} catch (e) {
-					if (child_type == this.childClasses.length - 1) {
-						throw e; 
+		let ids = parentData[this.childrenField];
+		
+		/**
+		 * Stores the child instances
+		 */
+		let children_instances = [];
+
+		// Check if it has already been imported
+		if (ids.every(id => this.childClasses.some(child_class => id instanceof child_class))) {
+			return parentData; 
+		}; 
+
+		for (const id of ids) {
+			if (this.childClasses.some(child_class => id instanceof child_class)) {
+				children_instances.push(id);
+			} else {
+				let child_instance; 
+				let data = await callback(id);
+
+				if (data) {
+					for (let child_type = 0; child_type < this.childClasses.length; child_type++) {
+						try {
+							child_instance = new this.childClasses[child_type](data);
+							break;
+						} catch (e) {
+							if (child_type == this.childClasses.length - 1) {
+								throw e; 
+							}; 
+						}; 
 					}; 
-				}; 
-			}; 
-			return child;
+	
+					children_instances.push(child_instance);
+				}
+			};
+		};
+
+		let parent = new this.parentClass({
+			...parentData,
+			[this.childrenField]: []
 		});
-
-		let parent = (parentData instanceof this.parentClass) 
-			? parentData 
-			: new this.parentClass(parentData);
-
-		parent[this.childrenField] = childrenInstances;
+		parent[this.childrenField] = children_instances;
 		return parent;
 	};
 }
