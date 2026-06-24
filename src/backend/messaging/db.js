@@ -5,18 +5,21 @@
  */
 
 /**
+ * @requires zod
  * @requires ../database/controller.js
  * @requires ../database/simulated/registry.js
  * @requires ./message/repository.js
  * @requires ./thread/repository.js
  */
-
+const z = require(`zod`).z;
 const DataController = require('../database/controller.js').DataController;
 const db = require(`../database/simulated/registry.js`).Register; 
 const repositories = {
 	...require(`./message/repository`),
 	BoardRepository: require(`./board/repository`),
 };
+const errors = require(`../database/messaging`);
+const Board = require(`./board/board`); 
 
 /**
  * Find the hierarchy of parents. 
@@ -55,7 +58,7 @@ class BoardsManager extends DataController {
 			return filter; 
 		};
 
-		filter = zod.array(zod.union([zod.string(), zod.number()])).parse(
+		filter = z.array(z.union([z.string(), z.number()])).parse(
 			Array.isArray(filter) ? filter : [filter]);
 		
 		return { "title": { $in: filter } };
@@ -89,14 +92,10 @@ class MessagingManager {
 	 */
 	constructor() {
 		let board_methods = {
-			"create": (board) => {
-				return this.#controllers.boards.insert(board); 
-			},
-			"erase": (board) => {
-				return this.#controllers.boards.pop(board);
-			},
-			"find": (query, ...arguments) => {
-				return this.#controllers.boards.select(query, ...arguments);
+			"create": this.#controllers.boards.insert.bind(this.#controllers.boards),
+			"erase": this.#controllers.boards.pop.bind(this.#controllers.boards),
+			"find": async (ID) => {
+				let board = await this.#controllers.boards.select(ID, false, true, false)?.[0];
 			},
 			"update": (board) => {
 				// Replace any item with the same ID in the cache with the updated board
@@ -108,8 +107,9 @@ class MessagingManager {
 				}; 
 				return this.#controllers.boards.close(board);
 			}
-		}
+		};
 
+		this.#repositories.boards.callbacks = board_methods;
 	};
 
 	/**
@@ -120,13 +120,49 @@ class MessagingManager {
 	 */
 	async find(parents) {
 		parents = process_parents(parents);
-
+		
 		if (parents.length) {
+			let match = {}; 
+
+			let levels = [
+				/**
+				 * Finds the board. 
+				 * @param {String|Number} parent - the board ID
+				 */
+				async (parent) => {
+					let board = await this.#repositories.boards.find(parent, true, true)?.[0];
+
+					return board; 
+				},
+				/**
+				 * Finds the thread. 
+				 * @param {String|Number} parent - the thread ID
+				 * @param {Board} prev - the board found in the previous step
+				 */
+				async (parent, prev) => {
+					/**
+					 * @type {Board}
+					 */
+					let board = await this.#repositories.threads.import(prev, async (id) => {
+						return await this.#controllers.messages.select(parent)?.[0];
+					});
+					
+					let found = false; 
+					for (let thread_count = 0; thread_count < board.threads.length; thread_count++) {
+						if (board.threads[])
+					}
+				},
+				/**
+				 * Finds the message.
+				 */
+				async (parent, prev) => {
+
+				}
+			]
+
 			let board; 
 			let thread; 
 			let message; 
-
-			
 		}
 	};
 

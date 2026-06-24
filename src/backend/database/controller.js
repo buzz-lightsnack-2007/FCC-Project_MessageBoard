@@ -5,7 +5,7 @@
  * @requires ./simulated/Container
  */
 const zod = require(`zod`).z; 
-const errors = require(`./messaging`).Errors;
+const errors = require(`./messaging`);
 const sift = require(`sift`); 
 const Container = require(`./simulated/container`); 
 
@@ -23,12 +23,18 @@ const saving = (() => {
 	/**
 	 * @todo strings should be placed in a separate file, not just the ones below
 	 */
-	new Logging.Logging.info(new Logging.LogDetails(...((saving) ? [`Using MongoDB connection`, `Saving enabled`] : [`Data will be deleted upon program termination.`, `Saving disabled`])));
+	new Logging.Info(new Logging.LogDetails(...((saving) ? [`Using MongoDB connection`, `Saving enabled`] : [`Data will be deleted upon program termination.`, `Saving disabled`]))).show();
 
 	return saving; 
 })(); 
 
 class DataCache {
+	/**
+	 * The `DataController` instance that called this constructor
+	 * @type {DataController}
+	 */
+	caller;
+
 	/**
 	 * The data
 	 * @type {*}
@@ -53,12 +59,23 @@ class DataCache {
 	 * Initialize a data cache. 
 	 * @constructor
 	 * @param {*} data - the data to use
+	 * @param {Object} caller - the `DataController` instance that called this constructor
 	 * @param {Number} [operations = 0] - the number of operations on the data
 	 */
-	constructor(data, operations = 0) {
+	constructor(data, caller, operations = 0) {
 		this.data = data; 
 		this.operations = operations; 
+		this.caller = caller; 
 	}; 
+
+	/**
+	 * Done with the data? 
+	 * 
+	 * Closes this data cache; calls `DataController.close()` on the data.
+	 */
+	async done() {
+		await this.caller.close(this.data);
+	}
 }; 
 
 /**
@@ -114,16 +131,19 @@ class DataController {
 	 * Fetch in data
 	 * 
 	 * @async
-	 * @param {Object} filter - the filter to use
+	 * @param {Object|String|Number} query - the search query
 	 * @param {Boolean} [replace = false] - determines if the cache should be replaced if it already exists
 	 * @param {Boolean} [raise = true] - determines if an error should be raised if the data wasn’t found
+	 * @throws {errors.NotFoundError} if data wasn’t found through a filter query
+	 * @throws {errors.EntityNotFoundError} if data wasn’t found through an ID query
 	 * @returns {Set<Object>} - the loaded data
 	 */
-	async load(filter, replace = false, raise = true) {
-		filter = this.filterify(filter); 
+	async load(query, replace = false, raise = true) {
+		let filter = this.filterify(query); 
 
 		/**
 		 * @param {DataCache} data - the data cache 
+		 * @returns {Boolean} - whether the data can be inserted into the cache
 		 */
 		const deduplicate = (data) => {
 			let insertable = true; 
@@ -143,8 +163,8 @@ class DataController {
 		}; 
 
 		let matching = new Set(await this.database.find(filter)); 
-		matching.length && matching.forEach((data) => {
-			let cache = new DataCache(data); 
+		matching.size && matching.forEach((data) => {
+			let cache = new DataCache(data, this); 
 			let insertable = deduplicate(cache); 
 
 			if (insertable) {
@@ -153,7 +173,11 @@ class DataController {
 		}); 
 
 		if (!matching.size && raise) {
-			throw new errors.NotFoundError(JSON.stringify(filter));
+			throw new errors[
+				(!(typeof query == `object`))
+					? `EntityNotFoundError`
+					: `NotFoundError`
+			](query);
 		}; 
 
 		return matching;
@@ -165,19 +189,25 @@ class DataController {
 	 * Data will be loaded if it is not already cached.
 	 * @async
 	 * @param {Object} filter - the filter to use
-	 * @param {Boolean} [use=true] - determines if it should count as an operation on the data
-	 * @returns {Array<*>} - the selected data
+	 * @param {Boolean} [dc = true] - determines if the data cache will be returned instead of the data itself (default: `true`)
+	 * @param {Boolean} [use=true] - determines if it should count as an operation on the data. (default: `true`)
+	 * @param {Boolean} [raise=true] - determines if an error should be raised if the data wasn’t found. (default: `true`)
+	 * @returns {Array<*>} - matching data
 	 */
-	async select(filter, use = true, ...arguments) {
+	async select(filter, dc = true, use = true, raise = true) {
 		filter = this.filterify(filter); 
-		await this.load(filter, false, ...arguments);
+		await this.load(filter, false, raise);
 
-		let matching = this.data.filter(sift(filter));
-		if (use) {
-			matching.forEach((data) => {
-				let cache = Array.from(this.cache).find((c) => c.data == data);
-				cache && cache.operations++;
-			});
+		let match = this.data.filter(sift(filter));
+		let matching = (dc && match?.length) ? Array.from(this.cache).filter((cache) => 
+			ma
+		) : match;
+		if (use && match.length) {
+			if (dc) {
+				matching.forEach((cache) => cache.operations++);
+			} else {
+				this.cache.forEach((cache) => ((match.includes(cache.data)) && cache.operations++));
+			};
 		};
 		return matching;
 	};
@@ -185,8 +215,8 @@ class DataController {
 	/**
 	 * Close the data, updating the database if necessary.
 	 * @param {Object} filter - the filter to use
-	 * @param {Boolean} [update = true] - determines if the database should be updated
-	 * @param {Boolean} [force = false] - determines if the data should be closed even if it has operations
+	 * @param {Boolean} [update = true] - determines if the database should be updated (default: `true`)
+	 * @param {Boolean} [force = false] - determines if the data should be closed even if it has operations (default: `false`)
 	 * @returns {Array<*>} - the closed data
 	 */
 	async close(filter, update = true, force = false) {
@@ -225,7 +255,7 @@ class DataController {
 	insert(data, use = false) {
 		// Make sure to desociate the data, especially if it is an instance
 		let insertable = (data instanceof Object) ? { ...data } : data;
-		use && this.cache.add(new DataCache(insertable, 1));
+		use && this.cache.add(new DataCache(insertable, this, 1));
 
 		return this.database.insert(insertable);
 	};
