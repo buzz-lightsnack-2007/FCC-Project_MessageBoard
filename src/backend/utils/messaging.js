@@ -3,157 +3,99 @@
  * @module utils/messaging
  * Internal messaging utilities for the back-end, where detailed information can be logged
  */
-const zod = require(`zod`);
 
 /**
- * A message
- * @class Message
+ * Custom error class for internal errors
+ * @class CustomError
+ * @extends Error
  */
-class Message {
+class CustomError extends Error {
 	/**
-	 * The date the message was created
-	 * @type {Date}
+	 * Error name
+	 * @type {string}
 	 */
-	date;
+	name; 
 
 	/**
-	 * The sender of this message
-	 * @type {Object|String}
+	 * Error code (HTTP status code)
+	 * @type {number}
 	 */
-	cause;
+	code; 
 
 	/**
 	 * Description
-	 * @type {String}
+	 * @type {string}
 	 */
-	description;
+	message;
 
 	/**
 	 * @constructor
-	 * Creates a message. 
-	 * 
-	 * @param {Object} cause - the sender of the message; may be the instance of an object or a string. If not, the stack trace will be used to determine the sender.
-	 * @param {String} description - a description of the message
+	 * @param {string|Error} message - The error message
+	 * @param {number} [code = 500] - The HTTP status code for the error, which will be ignored if the message is another CustomError instance
 	 */
-	constructor(cause = null, description = "") {
-		/**
-		 * The description of the message, if provided and valid. Otherwise, undefined.
-		 */
-		const string_import_schema = zod.coerce.string().min(1);
-
-		this.date = new Date();
-		this.description = ([undefined, null].includes(description) || !(string_import_schema.safeParse(description).success)) ? undefined : string_import_schema.safeParse(description).data;
-
-		if (cause) {
-			this.cause = cause;
+	constructor(message, code = 500) {
+		super(message);
+		if (message instanceof Error) {
+			this.name = message.name;
+			this.message = message.message;
 		} else {
-			// If no cause is provided, use the stack trace to determine the sender
-			const stack = new Error().stack;
-			const lines = stack?.split?.("\n");
+			this.message = message;
+		}; 
 
-			// The third line in the stack trace is usually the caller of this constructor
-			this.cause = (lines?.length || 0) >= 3 ? lines[2].trim() : undefined;
+		this.code = (message instanceof CustomError) ? message.code : code; 
+	};
+}
+
+
+/**
+ * An internal error
+ * 
+ * This error is used to indicate that an expected internal error has occurred and was caught. 
+ * 
+ * @class InternalError
+ * @extends CustomError
+ */
+class InternalError extends CustomError {
+	/**
+	 * @constructor
+	 * @param {string|Error} message - The error message
+	 * @param {number} [code = 500] - The HTTP status code for the error, which will be ignored if the message is another CustomError instance
+	 */
+	constructor(message, code = 500) {
+		super(message, code);
+		if (message instanceof Error) {
+			this.stack = message.stack;
 		};
 	};
 };
 
-const types = {
-	"Success":
-		/**
-		 * A success message, indicating a successful operation
-		 * @class SuccessMessage
-		 * @extends Message
-		 */
-		class SuccessMessage extends Message {
-			/**
-			 * The result of that operation
-			 */
-			result;
-
-			/**
-			 * @constructor
-			 * Creates a success message.
-			 * @param {*} result - the result of that operation
-			 * @param {Object} cause - the process that has determined a success result
-			 * @param {String} description - a description of the message
-			 */
-			constructor(result, ...arguments) {
-				super(...arguments);
-				this.result = result;
-			};
-		},
-	"Warning":
-		/**
-		 * A warning message, indicating a potentially problematic operation that may require attention
-		 * @class WarningMessage
-		 * @extends Message
-		 */
-		class WarningMessage extends Message {
-			/**
-			 * The warning details
-			 * @type {*}
-			 */
-			warning;
-
-			/**
-			 * A result, if applicable
-			 * @type {*}
-			 */
-			result;
-
-			/**
-			 * @constructor
-			 * Creates a warning message.
-			 * @param {*} warning - the details of the warning
-			 * @param {*} result - the result of that operation, if applicable
-			 * @param {Object} cause - the process that has determined a warning result
-			 * @param {String} description - a description of the message
-			 */
-			constructor(warning, result = null, ...arguments) {
-				super(...arguments);
-				this.warning = warning;
-				this.result = result;
-			};
-		},
-	"Error":
-		/**
-		 * An error message, indicating a failed operation that may require attention
-		 * @class ErrorMessage
-		 * @extends Message
-		 */
-		class ErrorMessage extends Message {
-			/**
-			 * The error details
-			 * @type {*}
-			 */
-			error;
-
-			/**
-			 * @constructor
-			 * Creates an error message.
-			 * @param {*} error - the details of the error
-			 * @param {Object} cause - the process that has determined an error result
-			 * @param {String} description - a description of the message
-			 */
-			constructor(error, cause = null, description = "") {
-				super(cause || ((error instanceof Error && !cause) ? error.stack : undefined), description);
-				this.error = error;
-			};
-		}
+/**
+ * External error
+ * 
+ * This error processes an internal error, preparing it for a user-friendly message.
+ * 
+ * @class ExternalError
+ * @extends CustomError
+ */
+class ExternalError extends CustomError {
+	/**
+	 * @constructor
+	 * @param {string|Error} message - The error message
+	 * @param {number} [code = 500] - The HTTP status code for the error, which will be ignored if the message is another CustomError instance
+	 */
+	constructor(message, code = 500) {
+		super(message, code);
+	}; 
 };
 
 /**
- * Checks the category of a message
- * @param {Message} message - the message to check
- * @returns {"success"|"warning"|"error"|undefined} the category of the message, or undefined if it does not match any category
+ * Export the internal error for external use. 
+ * @param {InternalError} error - The internal error to export
+ * @returns {ExternalError} The exported external error
  */
-Message.getCategory = (message) => {
-	let match = Object.entries(types).filter(([_, type]) => message instanceof type);
-	return match.length ? match[0][0]?.toLowerCase() : undefined;
-};
+InternalError.export = (error) => {
+	return new ExternalError(error); 
+}; 
 
-module.exports = {
-	Message,
-	getCategory: Message.getCategory,
-	...types
-};
+
+module.exports = {InternalError, ExternalError};
